@@ -2,7 +2,7 @@ function [trans] = transformation(nome_immagine,noise_type,interp_type,cost_func
 
 % nome_imagine is a string without .format
 % noise_type is 'gaussian' or 'none'
-% interp_type is 'AI' or 'Cubic'
+% interp_type is 'AI' or 'Cubic' or 'Spline'
 % cost_function is 'LS' or 'WNRMSE' or 'MI'
 
 close all
@@ -59,13 +59,10 @@ griglia = quadgrid(j); % "pixel"
 
 % Operator evaluating space functions onto grid nodes
 Mass = operator2d(spazio,griglia,[1 0 0;0 0 0;0 0 0],base); % only relevant in a multiscale case
-disp('costruito operatore di massa');
+disp('building mass operator');
 
 
-
-
-
-% griglia su cui vive l'immagine
+% grid which the image is defined on
 
 h = 1/2.^j;
 
@@ -75,11 +72,11 @@ nome_reference = ['Images/',nome_immagine,num2str(2^j),'_T.jpg'];
 
 
 
-%% COSTRUZIONE DEL RUMORE
+% CONSTRUCTION OF NOISE
 
+% INITIALIZATION OF THE IMAGE
 
-%% INIZIALIZZAZIONE DELL'IMMAGINE
-disp(['Immagine = ',nome_immagine,num2str(2^j)]);
+disp(['Image = ',nome_immagine,num2str(2^j)]);
 R = imread(nome_reference);
 
 Rclean = double(R)/256;
@@ -88,8 +85,8 @@ T = imread(nome_template);
 R = double(R)/256;T = double(T)/256;
 
 
-% Dati per il passaggio di T da matrice a vettore;
-% questo e' un' escamotage, sicuramente si puo' fare in altro modo
+% Data for describing T from a matrix to a vector.
+% This is not a mandatory trick : one can surely do better than this.
 
 % matrix2vector(T,Li)=reshape(T',Np,Np); 
 % vector2matrix=reshape(T,Np^2,1)';
@@ -100,15 +97,15 @@ xt=(h/2:h:1-h/2);
 yt=(h/2:h:1-h/2);
 [Xt,Yt]=meshgrid(xt,yt);
 Li = griddata(griglia.x,griglia.y,(1:griglia.npoints)',Xt,Yt);
-Li = round(Li);
-%% Essenzialmente qui Li mi numera i punti 
+Li = round(Li); % Here Li basically counts the grid points
 
 
 N = 2^j;
 % Xi = Xt; Yi = Yt; Ti = T;
 
 
-%% Costruzione dei dati per l'interpolazione Spline o Bicubica
+% Data construction for the Spline or bi-cubic interpolation
+
 if(strcmp(interp_type,'Spline')|strcmp(interp_type,'Cubic'))
   
     hf = h/(2.0^nrefine);
@@ -132,21 +129,14 @@ if(strcmp(interp_type,'Spline')|strcmp(interp_type,'Cubic'))
 end
 
 
-%% Costruzione dei dati per l'interpolazione AI   
+% Data construction for the AI interpolation
+
 if (strcmp(interp_type,'AI'))
     
     AIbase=AIstart(D,jmax);
-    AIspace = uniformAIspace2d(j,D); %questo ??? lo spazio che rappresenta l'immagine con l'estensione periodica
+    AIspace = uniformAIspace2d(j,D); % This is the space which represents the image with periodic extension
 
-    % Dati per il passaggio di T da matrice a vettore;
-    % questo e' un' escamotage, sicuramente si puo' fare in altro modo
-
-
-    % Xi = Xt; Yi = Yt; Ti = T;
-
-
-    % Costruzione dei dati per la costruzione della funzione di costo e del gradiente.
-    % Estensione periodica di T
+    % Construction of the cost function an its gradient. Periodic extension of T.
 
     Te = [T(:,N-D+1:N), T, T(:,1:D)]; 
     Te = [Te(N-D+1:N,:); Te; Te(1:D,:)];
@@ -161,39 +151,15 @@ if (strcmp(interp_type,'AI'))
     Dyi = DA*Te'*A';
     Dxi = A*Te'*DA';
 
-    % Te ??? il vettore in AIspace che corrisponde a T
+    % Te is the vector in AIspace corresponding to T
 
     cgrid = uniform2d(j+nrefine,j+nrefine);
 
-    %[Ti,Dxi,Dyi] = applyAIoperator2d(Te,AIspace,cgrid,AIbase);
     Xi = reshape(cgrid.x,2^(j+nrefine)+1,2^(j+nrefine)+1)';
     Yi = reshape(cgrid.y,2^(j+nrefine)+1,2^(j+nrefine)+1)';
-    %Ti = reshape(Ti,2^(j+nrefine)+1,2^(j+nrefine)+1)';
-    %Dxi = reshape(Dxi,2^(j+nrefine)+1,2^(j+nrefine)+1)';
-    %Dyi = reshape(Dyi,2^(j+nrefine)+1,2^(j+nrefine)+1)';
 end    
 
-#{
-if(strcmp(interp_type,'BSplineP'))
-%% Costruzione dei dati per l'interpolazione BSpline Periodica
-    disp('costruzione dati interpolazione Bspline periodica');
-    hf = h/(2.0^nrefine);
-    kxe =[-2:2^j+2];
-    kye = kxe;
- %  xe=(-3*h/2:h:1+3*h/2);
- %   ye = xe;
-    [Kxe,Kye]=meshgrid(kxe,kye);
-
-    Te = [T(:,N-1) T(:,N), T, T(:,1) T(:,2) T(:,3)];
-    Te = [Te(N-1,:); Te(N,:); Te; Te(1,:); Te(2,:); Te(3,:)];
-    Npe = 2^j+5;
-    Ti = reshape(Te',Npe^2,1);
-
-    
-end
-#}
-
-% disp('Fine interpolazioni'); pause
+% disp('End of interpolation'); pause
 
 
 figure(1)
@@ -207,44 +173,10 @@ disp('2')
 T = matrix2vector(T,Li);
 R = matrix2vector(R,Li);
 
-
-
-
-% th=.3;
-% a0 = [0; cos(th)-1; -sin(th); cos(th)-1-sin(th);...
-%   -.2; sin(th)-.2;cos(th)-1.2; sin(th)+cos(th)-1.2] +.1*rand(8,1);
-
-
 c0 = costo(a0);
 tolerance = c0/200;
 
-
-
-%"FunValCheck", "OutputFcn", "TolX", "TolFun", "MaxIter", 
-%"MaxFunEvals", "GradObj", "FinDiffType", "TypicalX", "AutoScaling".
-
-
-
 t = cputime;
-
-
-
-% switch opt_algorithm
-%
-%    case 'QuasiNewton'
-% options=optimset('GradObj','on',...%'HessUpdate','steepdesc',...
-%    'MaxIter',maxit,'DerivativeCheck',der_control,...
-%     'TolFun',1.e-6,'TolX',1.e-6,...  %'DiffMinChange',1.e-4,
-%    'Display','final','PlotFcns',@optimplotfval,...
-%     'LargeScale','off');
-%% % options=optimset('GradObj','off','MaxFunEvals',1000,'DerivativeCheck','on')
-% [a1,fval,exitflag,output] = fminunc(@costo,a0,options);
-% 
-%% grad 
-%    otherwise
-% options=optimset('GradObj','on','MaxIter',100,'DerivativeCheck',der_control,...
-%     'TolFun',1.e-6,'TolX',1.e-6,'DiffMinChange',1.e-5,'Display','final',...
-%     'PlotFcns',@optimplotfval,'LargeScale','on');
 
 
 figure()
@@ -252,31 +184,14 @@ xlabel("iteration")
 ylabel("cost function")
 hold on
 
-
-
   opt = optimset('GradObj','on','MaxIter',maxit,'TolX',1.e-6,'TolFun',1.e-6,...
                 'OutputFcn', @showJ_history)
  [a1, fval,exitflag, output, grad, hess] = fminunc(@costo,a0,opt);
-
  
  hold off
  
- 
- 
- %
-% 
-
-
-
-
-% end
-
 elapsed_time=cputime-t;
 
-% save a2 a1;
-
-
-% print('-depsc',filename1);
 
  T1 = deforma(a1,griglia);
 figure(1);
@@ -295,33 +210,12 @@ disp_deformazione(a1,griglia);title('Transformation')
  S(:,:,2)=vector2matrix(T1,Li);
   subplot(2,3,4); imshow(S);title('Reference vs transformed Template');
 
-  
-  % print('-depsc',filename3);
-
-
 output
 
 
 disp(['CPU-time: ',num2str(elapsed_time)]);
 
-% disp(['Costo least square = ',num2str(costoLS(a1))]);
-% disp(['Costo least square normalizzato = ',num2str(costoLS(a1))]);
-% disp(['Costo SSIM (p=1) = ',num2str(costossim(a1,1.01))]);
-% disp(['Costo SSIM (p=1.01) = ',num2str(costossim(a1,1))]);
-% disp(['Costo SSIM (p=1.5) = ',num2str(costossim(a1,1.5))]);
-% disp(['Costo SSIM (p=2) = ',num2str(costossim(a1,2))]);
-% disp(['Costo SSIM (p=3) = ',num2str(costossim(a1,3))]);
-% disp(['Costo SSIM (p=10) = ',num2str(costossim(a1,10))]);
-% disp(['Costo HVS = ',num2str(costoHVS(a1))]);
-% disp(['Costo Besov = ',num2str(costoBesov(a1,besov_q))]);
-% disp(['Costo MI = ',num2str(costoMI2(a1))]);
-
 diary off;
 clear hvs
 
-#{
-save(filename5,'a1','T1');
-
-[y, Fs, nbits, opts] = wavread('small-bell-ring-01.wav');
-sound(y,Fs)
-#}
+end
