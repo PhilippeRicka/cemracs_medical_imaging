@@ -1,14 +1,12 @@
-function [trans] = transformation(nome_immagine,noise_type,interp_type,cost_function)
+function [a1] = transformation(nome_reference,nome_template,noise_type,interp_type,cost_function)
 
-% nome_imagine is a string without .format
+addpath('./WaveletBases') % MANDATORY
+
 % noise_type is 'gaussian' or 'none'
 % interp_type is 'AI' or 'Cubic' or 'Spline'
 % cost_function is 'LS' or 'WNRMSE' or 'MI'
 
 close all
-clear all
-
-addpath('../WaveletBases')
 
 global spazio spazio_im griglia T R Xi Yi Ti Dxi Dyi Li Mass jmax AIbase
 global interp_type cost_function
@@ -21,13 +19,6 @@ startmode = 'zero'; % nodal base
 
 Kmi=3; Nsample = 32;
 maxit=500;
-
-
-
-% Level of the image - 2^j x 2^j (max 9 for the image we have)
-
-j = 7;
-maxlev=j;
 
 nrefine=2;
 
@@ -43,6 +34,29 @@ a0 = zeros(2*(2^jwi+1)^2,1);
 figure(1); clf
 
 
+% CONSTRUCTION OF NOISE
+
+% INITIALIZATION OF THE IMAGE
+
+disp(['Image = ',nome_reference]);
+R = imread(nome_reference);
+
+Rclean = double(R)/256;
+T = imread(nome_template);
+
+R = double(R)/256;T = double(T)/256;
+
+R = squarify(R,'medical');
+T = squarify(T,'medical');
+
+j = log2(size(R,1)); % Level of the image : 2^j x 2^j
+maxlev=j;
+
+if size(R) ~= size(T)
+  disp('ERROR : reference and template are not the same size !')
+end
+
+
 % Initialization of the transformation space
 
 jmax=9; % resolution to evaluate PHI
@@ -54,7 +68,7 @@ if(strcmp(cost_function,'MI'))
 end
 
 base=start(nw,jmax);
-spazio = uniform2d(j0,jwi); % "transformazions"
+spazio = uniform2d(j0,jwi); % "transformations"
 griglia = quadgrid(j); % "pixel"
 
 % Operator evaluating space functions onto grid nodes
@@ -66,32 +80,9 @@ disp('building mass operator');
 
 h = 1/2.^j;
 
-nome_template = ['Images/',nome_immagine,num2str(2^j),'.jpg']; 
-nome_reference = ['Images/',nome_immagine,num2str(2^j),'_T.jpg']; 
-
-
-
-
-% CONSTRUCTION OF NOISE
-
-% INITIALIZATION OF THE IMAGE
-
-disp(['Image = ',nome_immagine,num2str(2^j)]);
-R = imread(nome_reference);
-
-Rclean = double(R)/256;
-T = imread(nome_template);
-
-R = double(R)/256;T = double(T)/256;
-
 
 % Data for describing T from a matrix to a vector.
 % This is not a mandatory trick : one can surely do better than this.
-
-% matrix2vector(T,Li)=reshape(T',Np,Np); 
-% vector2matrix=reshape(T,Np^2,1)';
-% (Np = nro di punti in ciascuna delle 2 direzioni
-
 
 xt=(h/2:h:1-h/2);
 yt=(h/2:h:1-h/2);
@@ -101,7 +92,6 @@ Li = round(Li); % Here Li basically counts the grid points
 
 
 N = 2^j;
-% Xi = Xt; Yi = Yt; Ti = T;
 
 
 % Data construction for the Spline or bi-cubic interpolation
@@ -138,14 +128,14 @@ if (strcmp(interp_type,'AI'))
 
     % Construction of the cost function an its gradient. Periodic extension of T.
 
-    Te = [T(:,N-D+1:N), T, T(:,1:D)]; 
+    Te = [T(:,N-D+1:N), T, T(:,1:D)];
     Te = [Te(N-D+1:N,:); Te; Te(1:D,:)];
 
     Te = Te';
 
-    AIspace1d = uniformAIspace1d(j,D);
-    cgrid1d = uniform1d(j+nrefine);
-    [A,DA] = AIoperator1d(AIspace1d,cgrid1d,AIbase);
+	      AIspace1d = uniformAIspace1d(j,D);
+	      cgrid1d = uniform1d(j+nrefine);
+	      [A,DA] = AIoperator1d(AIspace1d,cgrid1d,AIbase);
 
     Ti = A*Te'*A';
     Dyi = DA*Te'*A';
@@ -157,7 +147,7 @@ if (strcmp(interp_type,'AI'))
 
     Xi = reshape(cgrid.x,2^(j+nrefine)+1,2^(j+nrefine)+1)';
     Yi = reshape(cgrid.y,2^(j+nrefine)+1,2^(j+nrefine)+1)';
-end    
+end
 
 % disp('End of interpolation'); pause
 
