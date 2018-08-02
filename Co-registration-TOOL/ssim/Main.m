@@ -6,7 +6,7 @@ addpath('../WaveletBases')
 
 global spazio spazio_im griglia T R Xi Yi Ti Dxi Dyi Li Mass jmax AIbase
 global interp_type cost_function
-global wname maxlev% wavelet da usare per il calcolo della norma Besov.
+global wname maxlev % wavelet to use for the computation of Besov norm.
 global hvs
 global besov_q;
 global Nsample Kmi;
