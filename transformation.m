@@ -56,10 +56,9 @@ T = imread(patient);
 
 R = double(R)/256;T = double(T)/256;
 
-R = squarify(R,'medical');
-T = squarify(T,'medical');
+[R,j] = squarify(R,'medical');
+[T,j] = squarify(T,'medical');
 
-j = log2(size(R,1)); % Level of the image : 2^j x 2^j
 maxlev=j;
 
 if size(R) ~= size(T)
