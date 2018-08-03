@@ -1,1 +1,0 @@
-# cemracs_medical_imaging
